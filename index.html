@@ -1,0 +1,1427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Atlas of Local Vertex Energy</title>
+<meta name="description" content="Interactive calculator for local vertex energy in spectral graph theory: E_G(v) = E(G) − E(G−v). Pure JavaScript, no dependencies.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=STIX+Two+Text:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --paper:   #F8F6F0;
+    --panel:   #F1EDE3;
+    --plate:   #FCFBF7;
+    --ink:     #1D1A14;
+    --ink-2:   #6E6858;
+    --ink-3:   #9A9382;
+    --rule:    #D9D3C3;
+    --rule-2:  #C6BFAC;
+    --green-9: #0B4A2F;   /* max energy · accent */
+    --green-6: #2E7D53;
+    --green-3: #9DBFA5;
+    --red:     #A23B2A;   /* destructive only */
+    --serif: 'STIX Two Text', 'STIX Two Math', Georgia, serif;
+    --sans:  'IBM Plex Sans', system-ui, sans-serif;
+    --mono:  'IBM Plex Mono', ui-monospace, monospace;
+  }
+
+  html, body { height: 100%; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 14px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  button { font-family: inherit; cursor: pointer; background: none; border: none; color: inherit; }
+  button:focus-visible, .vertex-row:focus-visible { outline: 2px solid var(--green-6); outline-offset: 2px; }
+
+  /* ───────────────── header: title block of a paper ───────────────── */
+  header {
+    flex-shrink: 0;
+    padding: 18px 28px 14px;
+    border-bottom: 1px solid var(--ink);
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+  header .title h1 {
+    font-family: var(--serif);
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+  header .title p {
+    margin-top: 2px;
+    font-size: 12px;
+    color: var(--ink-2);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  header .definition {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 19px;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  header .definition .up { font-style: normal; font-size: 12px; color: var(--ink-2); vertical-align: super; }
+
+  /* ───────────────── layout ───────────────── */
+  .layout { display: flex; flex: 1; min-height: 0; }
+
+  /* ── the plate: canvas framed like Figure 1 ── */
+  .plate-area {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 22px 26px 16px;
+  }
+  .plate {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+    background: var(--plate);
+    border: 1px solid var(--rule-2);
+  }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; user-select: none; }
+
+  .figcaption {
+    flex-shrink: 0;
+    padding-top: 10px;
+    font-family: var(--serif);
+    font-size: 14px;
+    color: var(--ink-2);
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 16px;
+  }
+  .figcaption b { color: var(--ink); font-weight: 600; }
+  .figcaption .mode-hint { font-family: var(--sans); font-size: 12px; font-style: normal; color: var(--ink-3); }
+
+  /* colour bar (inside the plate, bottom-left) */
+  .colorbar {
+    position: absolute;
+    left: 14px;
+    bottom: 12px;
+    display: none;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--ink-2);
+    background: color-mix(in srgb, var(--plate) 82%, transparent);
+    padding: 5px 8px;
+    border: 1px solid var(--rule);
+  }
+  .colorbar.visible { display: flex; }
+  .colorbar .ramp {
+    width: 110px; height: 10px;
+    border: 1px solid var(--rule-2);
+    background: linear-gradient(90deg, #EAE5D6, #BFD3B4, #6FAF83, #2E7D53, #0B4A2F);
+  }
+  .colorbar .lab { font-style: italic; font-family: var(--serif); font-size: 12px; color: var(--ink); }
+
+  /* ───────────────── sidebar ───────────────── */
+  .sidebar {
+    width: 316px;
+    flex-shrink: 0;
+    background: var(--panel);
+    border-left: 1px solid var(--ink);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .tools { padding: 16px 18px 14px; border-bottom: 1px solid var(--rule-2); }
+  .segmented {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border: 1px solid var(--ink);
+    background: var(--paper);
+  }
+  .segmented button {
+    padding: 8px 4px 7px;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    border-right: 1px solid var(--rule-2);
+    transition: background 0.12s, color 0.12s;
+  }
+  .segmented button:last-child { border-right: none; }
+  .segmented button .key {
+    display: block; font-size: 9px; letter-spacing: 0.05em; color: var(--ink-3); margin-top: 2px;
+  }
+  .segmented button.active { background: var(--ink); color: var(--paper); }
+  .segmented button.active .key { color: var(--rule); }
+  .segmented button:hover:not(.active) { background: var(--panel); color: var(--ink); }
+
+  .tools .row2 {
+    margin-top: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .clear-btn {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--red);
+    border-bottom: 1px solid transparent;
+    padding-bottom: 1px;
+  }
+  .clear-btn:hover { border-bottom-color: var(--red); }
+  .auto-note { font-size: 11px; color: var(--ink-3); font-style: italic; font-family: var(--serif); }
+
+  .compute-btn {
+    display: none;
+    width: 100%;
+    margin-top: 10px;
+    padding: 9px;
+    border: 1px solid var(--green-9);
+    background: var(--green-9);
+    color: var(--paper);
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .compute-btn.visible { display: block; }
+  .compute-btn:hover { background: var(--green-6); border-color: var(--green-6); }
+
+  .results { flex: 1; overflow-y: auto; padding: 16px 18px 12px; min-height: 0; }
+  .results::-webkit-scrollbar { width: 8px; }
+  .results::-webkit-scrollbar-thumb { background: var(--rule-2); }
+
+  .empty-state {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 14.5px;
+    color: var(--ink-2);
+    line-height: 1.6;
+    padding-top: 6px;
+  }
+
+  .section-title {
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    border-bottom: 1px solid var(--rule-2);
+    padding-bottom: 5px;
+    margin: 18px 0 10px;
+  }
+  .results .section-title:first-child { margin-top: 0; }
+
+  /* global energies: a small printed table */
+  table.globals { width: 100%; border-collapse: collapse; }
+  table.globals td { padding: 5px 0; vertical-align: baseline; }
+  table.globals td.q { font-family: var(--serif); font-style: italic; font-size: 15.5px; }
+  table.globals td.val { text-align: right; font-family: var(--mono); font-size: 14px; font-weight: 500; }
+  table.globals td.val.accent { color: var(--green-9); }
+  table.globals tr.small td { font-size: 11.5px; color: var(--ink-2); padding-top: 0; }
+  table.globals tr.small td.q { font-size: 12.5px; }
+  .bound-ok { color: var(--green-6); }
+
+  /* spectrum number line */
+  .spectrum-svg { width: 100%; display: block; }
+
+  /* per-vertex table */
+  .vertex-row {
+    display: grid;
+    grid-template-columns: 14px 52px 34px 1fr 58px;
+    gap: 8px;
+    align-items: center;
+    padding: 5px 2px;
+    border-bottom: 1px solid var(--rule);
+    cursor: default;
+  }
+  .vertex-row:hover { background: color-mix(in srgb, var(--paper) 60%, transparent); }
+  .heat-chip { width: 12px; height: 12px; border: 1px solid var(--ink-2); }
+  .vname { font-family: var(--serif); font-style: italic; font-size: 15px; }
+  .vname sub { font-size: 10px; }
+  .vdeg { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); }
+  .vbar-bg { height: 5px; background: var(--paper); border: 1px solid var(--rule); position: relative; }
+  .vbar { position: absolute; inset: 0 auto 0 0; background: var(--green-6); }
+  .venergy { font-family: var(--mono); font-size: 12px; text-align: right; }
+
+  /* adjacency matrix */
+  .matrix {
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.75;
+    letter-spacing: 0.28em;
+    color: var(--ink);
+    overflow-x: auto;
+    padding: 2px 0 4px;
+    white-space: pre;
+  }
+  .matrix .z { color: var(--ink-3); opacity: 0.45; }
+
+  .stale { opacity: 0.35; pointer-events: none; }
+
+  /* families panel */
+  .families { padding: 16px 18px 14px; border-bottom: 1px solid var(--rule-2); }
+  .fam-row { display: flex; align-items: center; gap: 10px; }
+  .fam-row label {
+    font-size: 10.5px; font-weight: 600; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--ink-2);
+  }
+  .fam-row select {
+    flex: 1; min-width: 0;
+    font-family: var(--serif); font-style: italic; font-size: 14.5px;
+    color: var(--ink); background: var(--paper);
+    border: 1px solid var(--ink); border-radius: 0; padding: 5px 8px;
+  }
+  .param {
+    display: grid; grid-template-columns: 26px 1fr 30px;
+    gap: 10px; align-items: center; margin-top: 10px;
+  }
+  .param .pname { font-family: var(--serif); font-style: italic; font-size: 15px; }
+  .param input[type=range] { width: 100%; accent-color: var(--green-9); }
+  .param .pval { font-family: var(--mono); font-size: 12.5px; text-align: right; }
+  .family-note {
+    margin-top: 10px; font-family: var(--serif); font-style: italic;
+    font-size: 12.5px; line-height: 1.5; color: var(--ink-2);
+  }
+  .export-btn {
+    font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--ink-2); border-bottom: 1px solid transparent; padding-bottom: 1px;
+  }
+  .export-btn:hover { color: var(--ink); border-bottom-color: var(--ink); }
+
+  /* family curves — Fig. 2 */
+  .plate { min-height: 230px; }
+  .curves { margin-top: 16px; flex-shrink: 0; }
+  .curves-head {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 12px; margin-bottom: 6px; flex-wrap: wrap;
+  }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; }
+  .leg {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-family: var(--serif); font-style: italic; font-size: 12.5px; color: var(--ink);
+  }
+  .leg svg { display: block; }
+  .sweep-toggle { display: inline-flex; border: 1px solid var(--ink); background: var(--paper); }
+  .sweep-toggle .lab {
+    padding: 3px 8px; font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-3); align-self: center;
+  }
+  .sweep-toggle button {
+    padding: 3px 12px; font-family: var(--serif); font-style: italic; font-size: 13.5px;
+    color: var(--ink-2); border-left: 1px solid var(--rule-2);
+  }
+  .sweep-toggle button.active { background: var(--ink); color: var(--paper); }
+  .curves .frame { border: 1px solid var(--rule-2); background: var(--plate); }
+  #curves-svg { width: 100%; height: 178px; display: block; }
+  .curves .figcaption { padding-top: 8px; }
+
+  footer.colophon {
+    flex-shrink: 0;
+    border-top: 1px solid var(--rule-2);
+    padding: 10px 18px 12px;
+    font-size: 11px;
+    line-height: 1.55;
+    color: var(--ink-3);
+  }
+  footer.colophon i { font-family: var(--serif); }
+  footer.colophon a { color: var(--ink-2); text-decoration: none; border-bottom: 1px solid var(--rule-2); }
+  footer.colophon a:hover { color: var(--ink); border-bottom-color: var(--ink); }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+
+  @media (max-width: 860px) {
+    body { overflow: auto; }
+    .layout { flex-direction: column; }
+    .plate-area { padding: 14px 14px 10px; }
+    .plate { height: 52vh; flex: none; }
+    .sidebar { width: 100%; border-left: none; border-top: 1px solid var(--ink); }
+    .results { max-height: none; }
+    header { padding: 14px 16px 12px; }
+    header .definition { font-size: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="title">
+    <h1>Atlas of Local Vertex Energy</h1>
+    <p>Parametric families <p>An interactive calculator &middot; spectral graph theory</p>middot; interactive spectral graph theory</p>
+  </div>
+  <div class="definition">
+    E<span class="up">&nbsp;</span><sub>G</sub>(v) = E(G) &minus; E(G &minus; v),&ensp;
+    E(G) = &Sigma;<sub>i</sub> |&lambda;<sub>i</sub>|
+  </div>
+</header>
+
+<div class="layout">
+
+  <div class="plate-area">
+    <div class="plate">
+      <canvas id="c"></canvas>
+      <div class="colorbar" id="colorbar">
+        <span>0</span>
+        <div class="ramp"></div>
+        <span id="cb-max">–</span>
+        <span class="lab">E<sub>G</sub>(v)</span>
+      </div>
+    </div>
+    <div class="figcaption">
+      <span id="figcap"><b>Fig.&nbsp;1.</b> An empty canvas. Click anywhere to place vertices.</span>
+      <span class="mode-hint"><button class="export-btn" onclick="exportPNG()">Export PNG</button>&ensp;&middot;&ensp;<span id="mode-hint"></span></span>
+    </div>
+
+    <div class="curves" id="curves" hidden>
+      <div class="curves-head">
+        <span class="legend">
+          <span class="leg"><svg width="24" height="6"><line x1="0" y1="3" x2="24" y2="3" stroke="#1D1A14" stroke-width="1.8"/></svg>E(G)</span>
+          <span class="leg"><svg width="24" height="6"><line x1="0" y1="3" x2="24" y2="3" stroke="#0B4A2F" stroke-width="1.8"/></svg>e(G)</span>
+          <span class="leg"><svg width="24" height="6"><line x1="0" y1="3" x2="24" y2="3" stroke="#2E7D53" stroke-width="1.6" stroke-dasharray="4,3"/></svg>max<sub>v</sub>&thinsp;E<sub>G</sub>(v)</span>
+          <span class="leg"><svg width="24" height="6"><line x1="0" y1="3" x2="24" y2="3" stroke="#9A9382" stroke-width="1.4" stroke-dasharray="2,3"/></svg>min<sub>v</sub>&thinsp;E<sub>G</sub>(v)</span>
+        </span>
+        <span class="sweep-toggle" id="sweep-toggle" hidden></span>
+      </div>
+      <div class="frame">
+        <svg id="curves-svg" role="img" aria-label="Energy curves across the parametric family"></svg>
+      </div>
+      <div class="figcaption"><span id="figcap2"></span></div>
+    </div>
+  </div>
+
+  <aside class="sidebar">
+    <div class="families">
+      <div class="fam-row">
+        <label for="fam-select">Family</label>
+        <select id="fam-select" onchange="familySelected()" aria-label="Graph family"></select>
+      </div>
+      <div id="fam-params"></div>
+      <p class="family-note" id="fam-note"></p>
+    </div>
+
+    <div class="tools">
+      <div class="segmented" role="toolbar" aria-label="Editing mode">
+        <button id="btn-node"   onclick="setMode('node')">Vertex<span class="key">V</span></button>
+        <button id="btn-edge"   onclick="setMode('edge')">Edge<span class="key">E</span></button>
+        <button id="btn-move"   onclick="setMode('move')">Move<span class="key">M</span></button>
+        <button id="btn-delete" onclick="setMode('delete')">Delete<span class="key">D</span></button>
+      </div>
+      <div class="row2">
+        <span class="auto-note" id="auto-note">Energies update as you draw.</span>
+        <button class="clear-btn" onclick="clearGraph()">Clear all</button>
+      </div>
+      <button class="compute-btn" id="compute-btn" onclick="computeAll()">Compute energies</button>
+    </div>
+
+    <div class="results" id="results">
+      <div class="empty-state">
+        Draw a graph on the plate. Its energy <i>E(G)</i>, the local energy of every
+        vertex, and the spectrum of the adjacency matrix will appear here, recomputed
+        live as the graph changes.
+      </div>
+    </div>
+
+    <footer class="colophon">
+      Local energy of a vertex as defined by C.&nbsp;Espinal &amp; J.&nbsp;Rada (2024).
+      Eigenvalues via the classical <i>Jacobi</i> rotation algorithm for real symmetric
+      matrices — implemented from scratch, no dependencies.
+      <a href="https://github.com/AndresGomez87/atlas-local-vertex-energy">Source &amp; tests on GitHub</a>.
+    </footer>
+  </aside>
+
+</div>
+
+<script>
+'use strict';
+
+/* ════════════════════════════════════════════════════════════════════
+   NUMERICAL ENGINE — verified against NumPy (max abs error ~1e-14 on
+   random graphs; exact-form tests: P_n, C_n, S_n, K_n, K_{p,q},
+   Petersen, broom B_{4,3}).
+   ════════════════════════════════════════════════════════════════════ */
+
+// Classical Jacobi eigenvalue algorithm for real symmetric matrices.
+// Repeatedly annihilates the largest off-diagonal entry with a Givens
+// rotation; converges to a diagonal matrix holding the spectrum.
+function eigSymm(M) {
+  const n = M.length;
+  if (n === 0) return [];
+  if (n === 1) return [M[0][0]];
+
+  const A = M.map(row => Float64Array.from(row));
+  const maxIter = 100 * n * n;
+  let iter = 0;
+
+  while (iter++ < maxIter) {
+    // largest off-diagonal entry a_pq
+    let p = 0, q = 1, maxVal = Math.abs(A[0][1]);
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        if (Math.abs(A[i][j]) > maxVal) { maxVal = Math.abs(A[i][j]); p = i; q = j; }
+      }
+    }
+    if (maxVal < 1e-12) break;   // numerically diagonal
+
+    const app = A[p][p], aqq = A[q][q], apq = A[p][q];
+    // numerically stable rotation angle
+    const tau = (aqq - app) / (2.0 * apq);
+    const t = Math.sign(tau !== 0 ? tau : 1) / (Math.abs(tau) + Math.sqrt(tau * tau + 1.0));
+    const c = 1.0 / Math.sqrt(t * t + 1.0);
+    const s = t * c;
+
+    // orthogonal similarity A ← JᵀAJ
+    A[p][p] = app - t * apq;
+    A[q][q] = aqq + t * apq;
+    A[p][q] = 0.0; A[q][p] = 0.0;
+    for (let i = 0; i < n; i++) {
+      if (i !== p && i !== q) {
+        const api = A[p][i], aqi = A[q][i];
+        A[p][i] = c * api - s * aqi;  A[i][p] = A[p][i];
+        A[q][i] = s * api + c * aqi;  A[i][q] = A[q][i];
+      }
+    }
+  }
+  const eigs = new Array(n);
+  for (let i = 0; i < n; i++) eigs[i] = A[i][i];
+  return eigs;
+}
+
+function graphEnergy(adj) {
+  return eigSymm(adj).reduce((s, e) => s + Math.abs(e), 0);
+}
+
+function buildAdj(verts, edgeList) {
+  const n = verts.length;
+  const idx = {};
+  verts.forEach((v, i) => idx[v.id] = i);
+  const A = Array.from({ length: n }, () => Array(n).fill(0));
+  for (const e of edgeList) {
+    const a = idx[e.a], b = idx[e.b];
+    if (a !== undefined && b !== undefined) { A[a][b] = 1; A[b][a] = 1; }
+  }
+  return A;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   STATE
+   ════════════════════════════════════════════════════════════════════ */
+
+const AUTO_LIMIT = 30;   // auto-recompute up to this many vertices
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const plate = canvas.parentElement;
+
+let W = 0, H = 0, DPR = 1;
+let mode = 'node';
+let vertices = [];        // {id, x, y, energy}
+let edges = [];           // {a, b}  (vertex ids)
+let edgeStart = null;
+let dragging = null;
+let dragOff = { x: 0, y: 0 };
+let hoveredVertex = null;
+let hoveredEdge = null;
+let highlightId = null;   // vertex highlighted from the results table
+let mouse = { x: 0, y: 0, inside: false };
+let nextId = 1;
+let computed = false;
+let computeTimer = null;
+let lastResults = null;   // {EG, eG, localEnergies, eigs, A}
+
+const R = 16;             // vertex radius (CSS px)
+
+/* ════════════════════════════════════════════════════════════════════
+   HEAT RAMP  (sand → deep green), perceptually ordered by lightness
+   ════════════════════════════════════════════════════════════════════ */
+
+const RAMP = [[234,229,214],[191,211,180],[111,175,131],[46,125,83],[11,74,47]];
+function heatColor(t) {
+  t = Math.max(0, Math.min(1, t));
+  const seg = t * (RAMP.length - 1);
+  const i = Math.min(RAMP.length - 2, Math.floor(seg));
+  const f = seg - i;
+  const c = RAMP[i].map((a, k) => Math.round(a + f * (RAMP[i + 1][k] - a)));
+  return `rgb(${c[0]},${c[1]},${c[2]})`;
+}
+function heatIsDark(t) { return t > 0.55; }
+
+/* ════════════════════════════════════════════════════════════════════
+   CANVAS
+   ════════════════════════════════════════════════════════════════════ */
+
+function resize() {
+  DPR = window.devicePixelRatio || 1;
+  W = plate.clientWidth;
+  H = plate.clientHeight;
+  canvas.width = Math.round(W * DPR);
+  canvas.height = Math.round(H * DPR);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  draw();
+  if (typeof redrawCurves === 'function') redrawCurves();
+}
+window.addEventListener('resize', resize);
+
+function degreeOf(v) { return edges.reduce((s, e) => s + (e.a === v.id || e.b === v.id ? 1 : 0), 0); }
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // faint ruled grid, like graph paper
+  ctx.strokeStyle = 'rgba(29,26,20,0.045)';
+  ctx.lineWidth = 1;
+  for (let gx = 30; gx < W; gx += 30) { ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, H); ctx.stroke(); }
+  for (let gy = 30; gy < H; gy += 30) { ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(W, gy); ctx.stroke(); }
+
+  // edges
+  for (const ed of edges) {
+    const a = vertices.find(v => v.id === ed.a), b = vertices.find(v => v.id === ed.b);
+    if (!a || !b) continue;
+    const del = ed === hoveredEdge && mode === 'delete';
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.strokeStyle = del ? '#A23B2A' : '#1D1A14';
+    ctx.lineWidth = del ? 2.6 : 1.6;
+    ctx.stroke();
+  }
+
+  // rubber band while adding an edge
+  if (edgeStart && mode === 'edge' && mouse.inside) {
+    ctx.beginPath();
+    ctx.moveTo(edgeStart.x, edgeStart.y);
+    ctx.lineTo(mouse.x, mouse.y);
+    ctx.setLineDash([5, 5]);
+    ctx.strokeStyle = 'rgba(46,125,83,0.75)';
+    ctx.lineWidth = 1.6;
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // vertices
+  const maxLE = computed && lastResults ? Math.max(1e-12, ...lastResults.localEnergies) : 1;
+  for (const v of vertices) {
+    const i = vertices.indexOf(v);
+    const isPending = v === edgeStart;
+    const isHovered = v === hoveredVertex;
+    const isFlagged = v.id === highlightId;
+    const delTarget = isHovered && mode === 'delete';
+    const hasE = computed && v.energy !== null;
+    const t = hasE ? v.energy / maxLE : 0;
+
+    // halo for pending / highlighted
+    if (isPending || isFlagged) {
+      ctx.beginPath();
+      ctx.arc(v.x, v.y, R + 6, 0, Math.PI * 2);
+      ctx.strokeStyle = isPending ? 'rgba(46,125,83,0.9)' : 'rgba(29,26,20,0.55)';
+      ctx.setLineDash([4, 4]);
+      ctx.lineWidth = 1.6;
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    ctx.beginPath();
+    ctx.arc(v.x, v.y, R, 0, Math.PI * 2);
+    ctx.fillStyle = hasE ? heatColor(t) : '#FCFBF7';
+    ctx.fill();
+    ctx.strokeStyle = delTarget ? '#A23B2A' : '#1D1A14';
+    ctx.lineWidth = delTarget ? 2.4 : (isHovered ? 2.2 : 1.5);
+    ctx.stroke();
+
+    // label v_i  (serif italic, printed-figure style)
+    ctx.fillStyle = hasE && heatIsDark(t) ? '#F8F6F0' : '#1D1A14';
+    ctx.font = 'italic 600 13px "STIX Two Text", Georgia, serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('v' + subDigits(i), v.x, v.y + 0.5);
+
+    // energy value beneath
+    if (hasE) {
+      ctx.font = '500 10.5px "IBM Plex Mono", monospace';
+      ctx.fillStyle = '#1D1A14';
+      ctx.fillText(fmt(v.energy, 4), v.x, v.y + R + 12);
+    }
+  }
+}
+
+const SUBS = '₀₁₂₃₄₅₆₇₈₉';
+function subDigits(n) { return String(n).split('').map(d => SUBS[+d]).join(''); }
+function fmt(x, d) { const v = Math.abs(x) < 5e-13 ? 0 : x; return v.toFixed(d); }
+
+/* ════════════════════════════════════════════════════════════════════
+   PARAMETRIC FAMILIES — generators return {n, edges:[[i,j],…]} with
+   0-based indices; layouts return canvas positions. Generators are
+   verified in tests/verify_families.js (structure + exact energies).
+   ════════════════════════════════════════════════════════════════════ */
+
+function lineLayout(n, W, H) {
+  const m = 70;
+  return Array.from({ length: n }, (_, i) =>
+    ({ x: m + (W - 2 * m) * (n === 1 ? 0.5 : i / (n - 1)), y: H / 2 }));
+}
+function circleLayout(n, W, H, scale = 1) {
+  const r = (Math.min(W, H) / 2 - 70) * scale, cx = W / 2, cy = H / 2;
+  return Array.from({ length: n }, (_, i) => {
+    const a = 2 * Math.PI * i / n - Math.PI / 2;
+    return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
+  });
+}
+function fan(cx, cy, count, angle0, spread, r) {
+  return Array.from({ length: count }, (_, i) => {
+    const a = count === 1 ? angle0 : angle0 - spread / 2 + spread * i / (count - 1);
+    return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
+  });
+}
+const fanSpread = k => Math.min(Math.PI * 1.15, 0.55 + 0.3 * k);
+
+const FAMILIES = {
+  custom: {
+    name: 'Free draw', params: [],
+    note: 'Draw any graph by hand — or pick a family to generate one, then edit it freely.'
+  },
+  path: {
+    name: 'Path P(n)',
+    params: [{ k: 'n', lab: 'n', min: 2, max: 30, def: 6 }],
+    gen: p => ({ n: p.n, edges: Array.from({ length: p.n - 1 }, (_, i) => [i, i + 1]) }),
+    layout: (p, W, H) => lineLayout(p.n, W, H),
+    capt: p => `The path <i>P</i><sub>${p.n}</sub>`,
+    note: 'Eigenvalues 2 cos(kπ/(n+1)), k = 1,…,n.'
+  },
+  cycle: {
+    name: 'Cycle C(n)',
+    params: [{ k: 'n', lab: 'n', min: 3, max: 30, def: 8 }],
+    gen: p => ({ n: p.n, edges: Array.from({ length: p.n }, (_, i) => [i, (i + 1) % p.n]) }),
+    layout: (p, W, H) => circleLayout(p.n, W, H),
+    capt: p => `The cycle <i>C</i><sub>${p.n}</sub>`,
+    note: 'Eigenvalues 2 cos(2πk/n); bipartite exactly when n is even.'
+  },
+  star: {
+    name: 'Star S(n)',
+    params: [{ k: 'n', lab: 'n', min: 3, max: 30, def: 7 }],
+    gen: p => ({ n: p.n, edges: Array.from({ length: p.n - 1 }, (_, i) => [0, i + 1]) }),
+    layout: (p, W, H) => [{ x: W / 2, y: H / 2 },
+      ...circleLayout(p.n - 1, W, H, 0.8)],
+    capt: p => `The star <i>S</i><sub>${p.n}</sub>`,
+    note: 'Spectrum ±√(n−1) and 0 with multiplicity n−2, so E(G) = 2√(n−1).'
+  },
+  complete: {
+    name: 'Complete K(n)',
+    params: [{ k: 'n', lab: 'n', min: 2, max: 14, def: 5 }],
+    gen: p => {
+      const edges = [];
+      for (let i = 0; i < p.n; i++) for (let j = i + 1; j < p.n; j++) edges.push([i, j]);
+      return { n: p.n, edges };
+    },
+    layout: (p, W, H) => circleLayout(p.n, W, H, 0.85),
+    capt: p => `The complete graph <i>K</i><sub>${p.n}</sub>`,
+    note: 'Spectrum n−1 and −1 with multiplicity n−1, so E(G) = 2(n−1).'
+  },
+  bipartite: {
+    name: 'Complete bipartite K(p,q)',
+    params: [{ k: 'p', lab: 'p', min: 1, max: 12, def: 3 },
+             { k: 'q', lab: 'q', min: 1, max: 12, def: 4 }],
+    gen: p => {
+      const edges = [];
+      for (let i = 0; i < p.p; i++) for (let j = 0; j < p.q; j++) edges.push([i, p.p + j]);
+      return { n: p.p + p.q, edges };
+    },
+    layout: (p, W, H) => {
+      const m = 70;
+      const col = (c, x) => Array.from({ length: c }, (_, i) =>
+        ({ x, y: c === 1 ? H / 2 : m + (H - 2 * m) * i / (c - 1) }));
+      return [...col(p.p, W * 0.34), ...col(p.q, W * 0.66)];
+    },
+    capt: p => `The complete bipartite graph <i>K</i><sub>${p.p},${p.q}</sub>`,
+    note: 'Nonzero eigenvalues ±√(pq), so E(G) = 2√(pq).'
+  },
+  broom: {
+    name: 'Broom B(r,q)',
+    params: [{ k: 'r', lab: 'r', min: 2, max: 14, def: 4 },
+             { k: 'q', lab: 'q', min: 1, max: 12, def: 3 }],
+    gen: p => {
+      const edges = [];
+      for (let i = 0; i < p.r - 1; i++) edges.push([i, i + 1]);
+      for (let j = 0; j < p.q; j++) edges.push([p.r - 1, p.r + j]);
+      return { n: p.r + p.q, edges };
+    },
+    layout: (p, W, H) => {
+      const m = 80, pathW = (W - 2 * m) * 0.6;
+      const handle = Array.from({ length: p.r }, (_, i) =>
+        ({ x: m + (p.r === 1 ? 0 : pathW * i / (p.r - 1)), y: H / 2 }));
+      const hub = handle[p.r - 1];
+      return [...handle, ...fan(hub.x, hub.y, p.q, 0, fanSpread(p.q), 115)];
+    },
+    capt: p => `The broom <i>B</i><sub>${p.r},${p.q}</sub>`,
+    note: 'The hub carries the largest local energy of the broom; the pendant leaves the smallest.'
+  },
+  dstar: {
+    name: 'Double star S(p,q)',
+    params: [{ k: 'p', lab: 'p', min: 1, max: 12, def: 3 },
+             { k: 'q', lab: 'q', min: 1, max: 12, def: 3 }],
+    gen: p => {
+      const edges = [[0, 1]];
+      for (let i = 0; i < p.p; i++) edges.push([0, 2 + i]);
+      for (let j = 0; j < p.q; j++) edges.push([1, 2 + p.p + j]);
+      return { n: 2 + p.p + p.q, edges };
+    },
+    layout: (p, W, H) => {
+      const c1 = { x: W * 0.42, y: H / 2 }, c2 = { x: W * 0.58, y: H / 2 };
+      return [c1, c2,
+        ...fan(c1.x, c1.y, p.p, Math.PI, fanSpread(p.p), 115),
+        ...fan(c2.x, c2.y, p.q, 0, fanSpread(p.q), 115)];
+    },
+    capt: p => `The double star <i>S</i><sub>${p.p},${p.q}</sub>`,
+    note: 'Two adjacent centers with p and q pendant leaves; a tree of diameter 3.'
+  },
+  dbroom: {
+    name: 'Double broom DB(t,k)',
+    params: [{ k: 't', lab: 't', min: 2, max: 12, def: 4 },
+             { k: 'k', lab: 'k', min: 1, max: 10, def: 3 }],
+    gen: p => {
+      const edges = [];
+      for (let i = 0; i < p.t - 1; i++) edges.push([i, i + 1]);
+      for (let j = 0; j < p.k; j++) edges.push([0, p.t + j]);
+      for (let j = 0; j < p.k; j++) edges.push([p.t - 1, p.t + p.k + j]);
+      return { n: p.t + 2 * p.k, edges };
+    },
+    layout: (p, W, H) => {
+      const pathW = W * 0.44, x0 = (W - pathW) / 2;
+      const handle = Array.from({ length: p.t }, (_, i) =>
+        ({ x: x0 + (p.t === 1 ? 0 : pathW * i / (p.t - 1)), y: H / 2 }));
+      const L = handle[0], Rr = handle[p.t - 1];
+      return [...handle,
+        ...fan(L.x, L.y, p.k, Math.PI, fanSpread(p.k), 115),
+        ...fan(Rr.x, Rr.y, p.k, 0, fanSpread(p.k), 115)];
+    },
+    capt: p => `The symmetric double broom <i>DB</i><sub>${p.t},${p.k}</sub>`,
+    note: 'A path on t vertices with k pendant leaves at each end; symmetric under the swap of its two hubs.'
+  },
+  petersen: {
+    name: 'Petersen graph',
+    params: [],
+    gen: () => ({ n: 10, edges: [[0,1],[1,2],[2,3],[3,4],[4,0],
+      [5,7],[7,9],[9,6],[6,8],[8,5],[0,5],[1,6],[2,7],[3,8],[4,9]] }),
+    layout: (p, W, H) => [...circleLayout(5, W, H, 1), ...circleLayout(5, W, H, 0.5)],
+    capt: () => 'The Petersen graph',
+    note: 'Spectrum 3, 1 (×5), −2 (×4), so E(G) = 16. Strongly regular srg(10, 3, 0, 1).'
+  }
+};
+
+let currentFamily = 'custom';
+let famParams = {};
+
+function initFamilies() {
+  const sel = document.getElementById('fam-select');
+  for (const [key, f] of Object.entries(FAMILIES)) {
+    const o = document.createElement('option');
+    o.value = key; o.textContent = f.name;
+    sel.appendChild(o);
+  }
+  sel.value = 'custom';
+  renderFamParams();
+  parseHash();
+}
+
+function familySelected() {
+  currentFamily = document.getElementById('fam-select').value;
+  famParams = {};
+  for (const pr of FAMILIES[currentFamily].params) famParams[pr.k] = pr.def;
+  renderFamParams();
+  if (currentFamily !== 'custom') generateFamily();
+  else { updateHash(); updateCurves(); }
+}
+
+function renderFamParams() {
+  const box = document.getElementById('fam-params');
+  box.innerHTML = '';
+  const f = FAMILIES[currentFamily];
+  for (const pr of f.params) {
+    const val = famParams[pr.k] ?? pr.def;
+    const row = document.createElement('div');
+    row.className = 'param';
+    row.innerHTML = `<span class="pname">${pr.lab}</span>
+      <input type="range" min="${pr.min}" max="${pr.max}" value="${val}" step="1"
+             oninput="paramChanged('${pr.k}', this.value)" aria-label="parameter ${pr.lab}">
+      <span class="pval" id="pval-${pr.k}">${val}</span>`;
+    box.appendChild(row);
+  }
+  document.getElementById('fam-note').innerHTML = f.note || '';
+}
+
+function paramChanged(k, v) {
+  famParams[k] = +v;
+  document.getElementById('pval-' + k).textContent = v;
+  sweepKey = k;                 // la Fig. 2 barre el parámetro que se está moviendo
+  generateFamily();
+}
+
+function generateFamily() {
+  const f = FAMILIES[currentFamily];
+  if (!f.gen) return;
+  const g = f.gen(famParams);
+  const pos = f.layout(famParams, plate.clientWidth, plate.clientHeight);
+  vertices = pos.map((p, i) => ({ id: i + 1, x: p.x, y: p.y, energy: null }));
+  edges = g.edges.map(([a, b]) => ({ a: a + 1, b: b + 1 }));
+  nextId = g.n + 1;
+  edgeStart = null;
+  updateHash();
+  graphChanged();
+  updateCurves();
+}
+
+// manual structural edits detach the graph from its family
+function detachFamily() {
+  if (currentFamily === 'custom') return;
+  currentFamily = 'custom';
+  document.getElementById('fam-select').value = 'custom';
+  famParams = {};
+  renderFamParams();
+  updateHash();
+  updateCurves();
+}
+
+function updateHash() {
+  if (currentFamily === 'custom') {
+    history.replaceState(null, '', location.pathname + location.search);
+    return;
+  }
+  const q = FAMILIES[currentFamily].params
+    .map(p => `${p.k}=${famParams[p.k]}`).join('&');
+  history.replaceState(null, '', '#f=' + currentFamily + (q ? '&' + q : ''));
+}
+
+function parseHash() {
+  const h = location.hash.replace(/^#/, '');
+  if (!h) return;
+  const parts = Object.fromEntries(h.split('&').map(s => s.split('=')));
+  if (!parts.f || !FAMILIES[parts.f] || parts.f === 'custom') return;
+  currentFamily = parts.f;
+  famParams = {};
+  for (const pr of FAMILIES[currentFamily].params) {
+    let v = parseInt(parts[pr.k], 10);
+    if (Number.isNaN(v)) v = pr.def;
+    famParams[pr.k] = Math.max(pr.min, Math.min(pr.max, v));
+  }
+  document.getElementById('fam-select').value = currentFamily;
+  renderFamParams();
+  generateFamily();
+}
+
+function exportPNG() {
+  if (vertices.length === 0) return;
+  const tmp = document.createElement('canvas');
+  tmp.width = canvas.width;
+  tmp.height = canvas.height;
+  const t = tmp.getContext('2d');
+  t.fillStyle = '#FCFBF7';
+  t.fillRect(0, 0, tmp.width, tmp.height);
+  t.drawImage(canvas, 0, 0);
+  const a = document.createElement('a');
+  const name = currentFamily === 'custom' ? 'graph'
+    : currentFamily + FAMILIES[currentFamily].params.map(p => '-' + famParams[p.k]).join('');
+  a.download = 'local-energy-' + name + '.png';
+  a.href = tmp.toDataURL('image/png');
+  a.click();
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   FAMILY CURVES — Fig. 2. Sweeps the selected parameter across its
+   range, computing E(G), e(G), and the extreme local energies at each
+   value. Progressive (chunked) so the UI never freezes; results are
+   cached per (family, sweep parameter, fixed parameters).
+   ════════════════════════════════════════════════════════════════════ */
+
+let sweepKey = null;
+let sweepJob = null;
+let lastCurve = null;              // {pts, pr, done}
+const sweepCache = {};             // key -> {pts, done}
+
+function adjFromGen(g) {
+  const A = Array.from({ length: g.n }, () => Array(g.n).fill(0));
+  for (const [a, b] of g.edges) { A[a][b] = 1; A[b][a] = 1; }
+  return A;
+}
+function energyWithout(A, k) {
+  const n = A.length, idx = [];
+  for (let i = 0; i < n; i++) if (i !== k) idx.push(i);
+  return graphEnergy(idx.map(i => idx.map(j => A[i][j])));
+}
+function sweepPoint(f, params, x) {
+  const g = f.gen(params);
+  const A = adjFromGen(g);
+  const EG = eigSymm(A).reduce((s, e) => s + Math.abs(e), 0);
+  let eG = 0, mx = -Infinity, mn = Infinity;
+  for (let k = 0; k < g.n; k++) {
+    const Ev = g.n === 1 ? EG : EG - energyWithout(A, k);
+    eG += Ev;
+    if (Ev > mx) mx = Ev;
+    if (Ev < mn) mn = Ev;
+  }
+  return { x, EG, eG, mx, mn };
+}
+
+function cancelSweep() { if (sweepJob) sweepJob.cancelled = true; sweepJob = null; }
+
+function updateCurves() {
+  const box = document.getElementById('curves');
+  const f = FAMILIES[currentFamily];
+  if (!f || !f.gen || f.params.length === 0) {
+    box.hidden = true;
+    cancelSweep();
+    lastCurve = null;
+    return;
+  }
+  if (!sweepKey || !f.params.some(p => p.k === sweepKey)) sweepKey = f.params[0].k;
+  box.hidden = false;
+  renderSweepToggle(f);
+  startSweep();
+}
+
+function renderSweepToggle(f) {
+  const tog = document.getElementById('sweep-toggle');
+  if (f.params.length < 2) { tog.hidden = true; return; }
+  tog.hidden = false;
+  tog.innerHTML = '<span class="lab">Sweep</span>' + f.params.map(pr =>
+    `<button class="${pr.k === sweepKey ? 'active' : ''}"
+             onclick="setSweep('${pr.k}')" aria-label="sweep parameter ${pr.lab}">${pr.lab}</button>`
+  ).join('');
+}
+
+function setSweep(k) {
+  sweepKey = k;
+  renderSweepToggle(FAMILIES[currentFamily]);
+  startSweep();
+}
+
+function startSweep() {
+  cancelSweep();
+  const f = FAMILIES[currentFamily];
+  const pr = f.params.find(p => p.k === sweepKey);
+  const fixed = f.params.filter(p => p.k !== sweepKey)
+    .map(p => p.k + '=' + famParams[p.k]).join(',');
+  const key = `${currentFamily}|${sweepKey}|${fixed}`;
+  const entry = sweepCache[key] || (sweepCache[key] = { pts: [], done: false });
+
+  drawCurves(entry.pts, pr, entry.done);
+  updateFig2Caption(f, pr);
+  if (entry.done) return;
+
+  const job = { cancelled: false };
+  sweepJob = job;
+  const step = () => {
+    if (job.cancelled) return;
+    const x = pr.min + entry.pts.length;
+    if (x > pr.max) { entry.done = true; drawCurves(entry.pts, pr, true); return; }
+    entry.pts.push(sweepPoint(f, { ...famParams, [sweepKey]: x }, x));
+    drawCurves(entry.pts, pr, x === pr.max);
+    setTimeout(step, 0);
+  };
+  setTimeout(step, 0);
+}
+
+function updateFig2Caption(f, pr) {
+  const fixed = f.params.filter(p => p.k !== sweepKey);
+  const fixedTxt = fixed.length
+    ? ', with ' + fixed.map(p => `<i>${p.lab}</i> = ${famParams[p.k]}`).join(' and ') + ' fixed'
+    : '';
+  document.getElementById('figcap2').innerHTML =
+    `<b>Fig.&nbsp;2.</b> Energies across the family as <i>${pr.lab}</i> varies${fixedTxt}. ` +
+    `The dotted rule marks the graph of Fig.&nbsp;1.`;
+}
+
+function drawCurves(pts, pr, done) {
+  lastCurve = { pts, pr, done };
+  const svg = document.getElementById('curves-svg');
+  const w = Math.max(340, Math.round(svg.clientWidth) || 680);
+  const h = 178, L = 48, Rm = 16, T = 14, B = 26;
+  const iw = w - L - Rm, ih = h - T - B;
+  const span = Math.max(1, pr.max - pr.min);
+  const X = x => L + (x - pr.min) / span * iw;
+
+  let ymax = 1e-9;
+  for (const p of pts) ymax = Math.max(ymax, p.EG, p.eG, p.mx);
+  ymax = ymax * 1.1 || 1;
+  const Y = y => T + ih - (y / ymax) * ih;
+
+  // rejilla y etiquetas del eje y (pasos "bonitos")
+  const raw = ymax / 4;
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const stepY = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => s >= raw) || raw;
+  let grid = '';
+  for (let y = 0; y <= ymax + 1e-9; y += stepY) {
+    grid += `<line x1="${L}" y1="${Y(y).toFixed(1)}" x2="${w - Rm}" y2="${Y(y).toFixed(1)}" stroke="rgba(29,26,20,0.07)"/>`;
+    grid += `<text x="${L - 7}" y="${(Y(y) + 3.5).toFixed(1)}" text-anchor="end" font-size="10"
+      font-family="IBM Plex Mono, monospace" fill="#6E6858">${y % 1 === 0 ? y : y.toFixed(1)}</text>`;
+  }
+
+  // marcas del eje x (parámetro entero)
+  const stepX = Math.max(1, Math.ceil(span / 12));
+  let xt = '';
+  for (let x = pr.min; x <= pr.max; x += stepX) {
+    xt += `<line x1="${X(x).toFixed(1)}" y1="${T + ih}" x2="${X(x).toFixed(1)}" y2="${T + ih + 4}" stroke="#6E6858"/>`;
+    xt += `<text x="${X(x).toFixed(1)}" y="${T + ih + 16}" text-anchor="middle" font-size="10"
+      font-family="IBM Plex Mono, monospace" fill="#6E6858">${x}</text>`;
+  }
+
+  const NAMES = { EG: 'E(G)', eG: 'e(G)', mx: 'max E_G(v)', mn: 'min E_G(v)' };
+  const line = (key, color, width, dash) => pts.length < 2 ? '' :
+    `<polyline fill="none" stroke="${color}" stroke-width="${width}"
+       ${dash ? `stroke-dasharray="${dash}"` : ''}
+       points="${pts.map(p => X(p.x).toFixed(1) + ',' + Y(p[key]).toFixed(1)).join(' ')}"/>`;
+  const dots = (key, color) => pts.map(p =>
+    `<circle cx="${X(p.x).toFixed(1)}" cy="${Y(p[key]).toFixed(1)}" r="2.4" fill="${color}">
+       <title>${pr.lab} = ${p.x} · ${NAMES[key]} = ${p[key].toFixed(4)}</title></circle>`).join('');
+
+  // regla punteada: posición del grafo actual (Fig. 1)
+  const cur = famParams[sweepKey];
+  const marker = `<line x1="${X(cur).toFixed(1)}" y1="${T}" x2="${X(cur).toFixed(1)}" y2="${T + ih}"
+    stroke="#1D1A14" stroke-width="1" stroke-dasharray="2,3"/>`;
+
+  const progress = done ? '' :
+    `<text x="${w - Rm}" y="${T + 4}" text-anchor="end" font-size="10"
+      font-family="IBM Plex Mono, monospace" fill="#9A9382">computing…</text>`;
+
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  svg.innerHTML = `
+    ${grid}
+    <line x1="${L}" y1="${T + ih}" x2="${w - Rm}" y2="${T + ih}" stroke="#1D1A14" stroke-width="1.2"/>
+    <line x1="${L}" y1="${T}" x2="${L}" y2="${T + ih}" stroke="#1D1A14" stroke-width="1.2"/>
+    ${xt}${marker}
+    ${line('mn', '#9A9382', 1.4, '2,3')}${dots('mn', '#9A9382')}
+    ${line('mx', '#2E7D53', 1.6, '4,3')}${dots('mx', '#2E7D53')}
+    ${line('EG', '#1D1A14', 1.8)}${dots('EG', '#1D1A14')}
+    ${line('eG', '#0B4A2F', 1.8)}${dots('eG', '#0B4A2F')}
+    ${progress}`;
+}
+
+function redrawCurves() {
+  if (lastCurve && !document.getElementById('curves').hidden)
+    drawCurves(lastCurve.pts, lastCurve.pr, lastCurve.done);
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   INTERACTION
+   ════════════════════════════════════════════════════════════════════ */
+
+function vertexAt(x, y) {
+  for (let i = vertices.length - 1; i >= 0; i--) {
+    const v = vertices[i];
+    const dx = v.x - x, dy = v.y - y;
+    if (dx * dx + dy * dy <= (R + 5) * (R + 5)) return v;
+  }
+  return null;
+}
+
+function edgeAt(x, y) {
+  const tol = 7;
+  for (const e of edges) {
+    const a = vertices.find(v => v.id === e.a), b = vertices.find(v => v.id === e.b);
+    if (!a || !b) continue;
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const len2 = dx * dx + dy * dy;
+    if (len2 < 1) continue;
+    const t = Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / len2));
+    const px = a.x + t * dx - x, py = a.y + t * dy - y;
+    if (px * px + py * py <= tol * tol) return e;
+  }
+  return null;
+}
+
+function pos(e) {
+  const r = canvas.getBoundingClientRect();
+  return { x: e.clientX - r.left, y: e.clientY - r.top };
+}
+
+canvas.addEventListener('mousedown', e => {
+  const { x, y } = pos(e);
+
+  if (mode === 'node') {
+    if (!vertexAt(x, y)) {
+      vertices.push({ id: nextId++, x, y, energy: null });
+      detachFamily();
+      graphChanged();
+    }
+  } else if (mode === 'edge') {
+    const v = vertexAt(x, y);
+    if (v) {
+      if (!edgeStart) edgeStart = v;
+      else if (edgeStart.id !== v.id) {
+        const exists = edges.some(ed => (ed.a === edgeStart.id && ed.b === v.id) || (ed.a === v.id && ed.b === edgeStart.id));
+        if (!exists) { edges.push({ a: edgeStart.id, b: v.id }); detachFamily(); graphChanged(); }
+        edgeStart = null;
+      } else edgeStart = null;
+    } else edgeStart = null;
+    draw();
+  } else if (mode === 'move') {
+    const v = vertexAt(x, y);
+    if (v) { dragging = v; dragOff = { x: x - v.x, y: y - v.y }; }
+  } else if (mode === 'delete') {
+    const v = vertexAt(x, y);
+    if (v) {
+      vertices = vertices.filter(u => u.id !== v.id);
+      edges = edges.filter(ed => ed.a !== v.id && ed.b !== v.id);
+      detachFamily();
+      graphChanged();
+      return;
+    }
+    const ed = edgeAt(x, y);
+    if (ed) { edges = edges.filter(x2 => x2 !== ed); detachFamily(); graphChanged(); }
+  }
+});
+
+canvas.addEventListener('mousemove', e => {
+  const { x, y } = pos(e);
+  mouse = { x, y, inside: true };
+  if (dragging) {
+    dragging.x = x - dragOff.x;
+    dragging.y = y - dragOff.y;
+    draw();
+    return;
+  }
+  const pv = hoveredVertex, pe = hoveredEdge;
+  hoveredVertex = vertexAt(x, y);
+  hoveredEdge = hoveredVertex ? null : edgeAt(x, y);
+  if (hoveredVertex !== pv || hoveredEdge !== pe || (edgeStart && mode === 'edge')) draw();
+});
+
+canvas.addEventListener('mouseup', () => { dragging = null; });
+canvas.addEventListener('mouseleave', () => {
+  dragging = null; hoveredVertex = null; hoveredEdge = null; mouse.inside = false; draw();
+});
+
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  const k = e.key.toLowerCase();
+  if (k === 'v') setMode('node');
+  else if (k === 'e') setMode('edge');
+  else if (k === 'm') setMode('move');
+  else if (k === 'd') setMode('delete');
+  else if (k === 'escape') { edgeStart = null; draw(); }
+});
+
+const MODE_HINTS = {
+  node:   'Click empty space to place a vertex',
+  edge:   'Click a vertex, then another, to join them',
+  move:   'Drag vertices to reposition',
+  delete: 'Click a vertex or an edge to remove it'
+};
+
+function setMode(m) {
+  mode = m;
+  edgeStart = null;
+  for (const id of ['btn-node', 'btn-edge', 'btn-move', 'btn-delete'])
+    document.getElementById(id).classList.remove('active');
+  document.getElementById('btn-' + (m === 'node' ? 'node' : m)).classList.add('active');
+  document.getElementById('mode-hint').textContent = MODE_HINTS[m];
+  draw();
+}
+
+function clearGraph() {
+  vertices = []; edges = []; edgeStart = null; computed = false; lastResults = null;
+  if (currentFamily !== 'custom') {
+    currentFamily = 'custom';
+    document.getElementById('fam-select').value = 'custom';
+    famParams = {};
+    renderFamParams();
+    updateHash();
+  }
+  updateCurves();
+  document.getElementById('results').innerHTML =
+    '<div class="empty-state">Draw a graph on the plate. Its energy <i>E(G)</i>, the local energy of every vertex, and the spectrum of the adjacency matrix will appear here, recomputed live as the graph changes.</div>';
+  document.getElementById('colorbar').classList.remove('visible');
+  updateCaption();
+  draw();
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   COMPUTE + RENDER RESULTS
+   ════════════════════════════════════════════════════════════════════ */
+
+function graphChanged() {
+  computed = false;
+  vertices.forEach(v => v.energy = null);
+  updateCaption();
+  draw();
+
+  const n = vertices.length;
+  const btn = document.getElementById('compute-btn');
+  const note = document.getElementById('auto-note');
+
+  if (n === 0) { clearGraph(); return; }
+
+  if (n <= AUTO_LIMIT) {
+    btn.classList.remove('visible');
+    note.textContent = 'Energies update as you draw.';
+    clearTimeout(computeTimer);
+    computeTimer = setTimeout(computeAll, 120);
+  } else {
+    note.textContent = `n > ${AUTO_LIMIT}: compute on demand.`;
+    btn.classList.add('visible');
+    const panel = document.getElementById('results');
+    if (lastResults) panel.classList.add('stale');
+  }
+}
+
+function computeAll() {
+  const n = vertices.length;
+  if (n === 0) return;
+
+  const A = buildAdj(vertices, edges);
+  const eigs = eigSymm(A).slice().sort((a, b) => b - a);
+  const EG = eigs.reduce((s, e) => s + Math.abs(e), 0);
+
+  const localEnergies = vertices.map((v, i) => {
+    if (n === 1) return EG;
+    const subVerts = vertices.filter((_, j) => j !== i);
+    const subEdges = edges.filter(e => e.a !== v.id && e.b !== v.id);
+    return EG - graphEnergy(buildAdj(subVerts, subEdges));
+  });
+
+  vertices.forEach((v, i) => v.energy = localEnergies[i]);
+  computed = true;
+  lastResults = { EG, localEnergies, eigs, A };
+  document.getElementById('results').classList.remove('stale');
+  document.getElementById('compute-btn').classList.remove('visible');
+  updateCaption();
+  draw();
+  renderResults();
+}
+
+function updateCaption() {
+  const n = vertices.length, m = edges.length;
+  const cap = document.getElementById('figcap');
+  if (n === 0) {
+    cap.innerHTML = '<b>Fig.&nbsp;1.</b> An empty canvas. Click anywhere to place vertices.';
+    return;
+  }
+  let extra = '';
+  if (computed && lastResults) {
+    const eigs = lastResults.eigs;
+    const symmetric = eigs.every(l => eigs.some(mu => Math.abs(mu + l) < 1e-7));
+    if (symmetric && m > 0) extra = ' Spectrum symmetric about 0.';
+  }
+  const f = FAMILIES[currentFamily];
+  const gname = (currentFamily !== 'custom' && f.capt) ? f.capt(famParams) : 'A graph <i>G</i>';
+  cap.innerHTML = `<b>Fig.&nbsp;1.</b> ${gname} with <i>n</i> = ${n} vertices and <i>m</i> = ${m} edge${m === 1 ? '' : 's'}.${extra}`;
+}
+
+function renderResults() {
+  const { EG, localEnergies, eigs, A } = lastResults;
+  const n = vertices.length;
+  const eG = localEnergies.reduce((s, e) => s + e, 0);
+  const maxLE = Math.max(1e-12, ...localEnergies);
+
+  document.getElementById('cb-max').textContent = fmt(maxLE, 3);
+  document.getElementById('colorbar').classList.add('visible');
+
+  let html = '';
+
+  // ── global quantities ──
+  html += '<div class="section-title">Energies</div>';
+  html += '<table class="globals">';
+  html += `<tr><td class="q">E(G)</td><td class="val">${fmt(EG, 6)}</td></tr>`;
+  html += `<tr><td class="q">e(G) = &Sigma;<sub>v</sub> E<sub>G</sub>(v)</td><td class="val accent">${fmt(eG, 6)}</td></tr>`;
+  html += `<tr class="small"><td class="q">e(G) / E(G)</td><td class="val">${fmt(eG / EG, 4)}${eG <= 2 * EG + 1e-9 ? ' <span class="bound-ok">&le; 2 ✓</span>' : ''}</td></tr>`;
+  html += '</table>';
+
+  // ── spectrum as a number line ──
+  html += '<div class="section-title">Spectrum of A</div>';
+  html += spectrumSVG(eigs);
+
+  // ── per-vertex table ──
+  html += '<div class="section-title">Local energy per vertex</div>';
+  const order = localEnergies.map((e, i) => ({ i, e })).sort((a, b) => b.e - a.e);
+  for (const { i, e } of order) {
+    const v = vertices[i];
+    const t = e / maxLE;
+    const d = degreeOf(v);
+    const pct = Math.max(0, Math.min(100, t * 100));
+    html += `<div class="vertex-row" tabindex="0"
+                  onmouseenter="flagVertex(${v.id})" onmouseleave="flagVertex(null)"
+                  onfocus="flagVertex(${v.id})" onblur="flagVertex(null)">
+      <div class="heat-chip" style="background:${heatColor(t)}"></div>
+      <span class="vname">v<sub>${i}</sub></span>
+      <span class="vdeg">d=${d}</span>
+      <div class="vbar-bg"><div class="vbar" style="width:${pct}%"></div></div>
+      <span class="venergy">${fmt(e, 4)}</span>
+    </div>`;
+  }
+
+  // ── adjacency matrix ──
+  html += '<div class="section-title">Adjacency matrix</div>';
+  html += '<div class="matrix">';
+  html += A.map(row => row.map(x => x === 0 ? '<span class="z">0</span>' : '1').join(' ')).join('\n');
+  html += '</div>';
+
+  document.getElementById('results').innerHTML = html;
+}
+
+// eigenvalues as ticks on the real line — the signature plot.
+function spectrumSVG(eigs) {
+  const w = 278, h = 74, cx = w / 2, axisY = h - 22;
+  const M = Math.max(1, ...eigs.map(e => Math.abs(e))) * 1.12;
+  const X = l => cx + (l / M) * (w / 2 - 14);
+
+  // stack coincident eigenvalues vertically (multiplicity)
+  const groups = {};
+  for (const l of eigs) {
+    const key = l.toFixed(6);
+    groups[key] = (groups[key] || 0) + 1;
+  }
+
+  let dots = '';
+  for (const [key, count] of Object.entries(groups)) {
+    const l = parseFloat(key);
+    const x = X(l);
+    for (let k = 0; k < count; k++) {
+      const y = axisY - 7 - k * 9;
+      dots += `<circle cx="${x.toFixed(1)}" cy="${y}" r="3.2"
+        fill="${Math.abs(l) < 1e-9 ? 'none' : '#0B4A2F'}"
+        stroke="#1D1A14" stroke-width="1"/>`;
+    }
+  }
+
+  // integer ticks within range
+  let ticks = '';
+  for (let t = Math.ceil(-M); t <= Math.floor(M); t++) {
+    const x = X(t);
+    ticks += `<line x1="${x.toFixed(1)}" y1="${axisY - 3}" x2="${x.toFixed(1)}" y2="${axisY + 3}" stroke="#6E6858" stroke-width="1"/>`;
+    ticks += `<text x="${x.toFixed(1)}" y="${axisY + 15}" font-size="10" text-anchor="middle"
+      font-family="IBM Plex Mono, monospace" fill="#6E6858">${t}</text>`;
+  }
+
+  return `<svg class="spectrum-svg" viewBox="0 0 ${w} ${h}" role="img"
+      aria-label="Eigenvalues of the adjacency matrix plotted on the real line">
+    <line x1="8" y1="${axisY}" x2="${w - 8}" y2="${axisY}" stroke="#1D1A14" stroke-width="1.2"/>
+    ${ticks}${dots}
+  </svg>`;
+}
+
+function flagVertex(id) {
+  highlightId = id;
+  draw();
+}
+
+/* ════════════════════════════════════════════════════════════════════ */
+
+resize();
+setMode('node');
+initFamilies();
+</script>
+</body>
+</html>

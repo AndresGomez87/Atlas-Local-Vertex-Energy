@@ -1,0 +1,17 @@
+{
+  "name": "atlas-local-vertex-energy",
+  "version": "1.0.0",
+  "description": "Interactive atlas of local vertex energy in graphs: parametric families, live heatmaps and energy curves. Single HTML file, zero dependencies.",
+  "scripts": {
+    "test": "node tests/verify_engine.js && node tests/verify_families.js && node tests/verify_curves.js",
+    "test:numpy": "node tests/verify_engine.js && python3 tests/cross_check_numpy.py"
+  },
+  "keywords": ["spectral-graph-theory", "graph-energy", "local-energy", "mathematics", "visualization"],
+  "author": "Andres David Gomez Gomez",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AndresGomez87/Atlas-Local-Vertex-Energy.git"
+  },
+  "homepage": "https://AndresGomez87.github.io/atlas-local-vertex-energy/"
+}

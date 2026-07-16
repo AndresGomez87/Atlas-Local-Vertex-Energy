@@ -1,0 +1,28 @@
+name: tests
+
+on: [push, pull_request]
+
+jobs:
+  javascript-suite:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Engine, families and curves (closed-form tests)
+        run: npm test
+
+  numpy-cross-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install numpy
+      - name: JS engine vs numpy.linalg.eigvalsh
+        run: npm run test:numpy
