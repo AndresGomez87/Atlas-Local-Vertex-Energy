@@ -1,13 +1,13 @@
 # Atlas de Energía Local de Vértices
 
-[![tests](https://github.com/AndresGomez87/atlas-local-vertex-energy/actions/workflows/tests.yml/badge.svg)](https://github.com/AndresGomez87/atlas-local-vertex-energy/actions)
+[![tests](https://github.com/AndresGomez87/Atlas-Local-Vertex-Energy/actions/workflows/tests.yml/badge.svg)](https://github.com/AndresGomez87/Atlas-Local-Vertex-Energy/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-0b4a2f.svg)](LICENSE)
 
 **[English version →](README.md)**
 
 Un atlas interactivo para explorar la **energía local de los vértices** de un grafo, un invariante reciente de la teoría espectral de grafos. Dibuja cualquier grafo o genera uno de una familia paramétrica, y observa cómo la energía se distribuye entre los vértices como un mapa de calor en vivo, con el espectro dibujado sobre la recta real y curvas de energía trazadas a lo largo de toda la familia.
 
-**Demo en línea:** https://AndresGomez87.github.io/atlas-local-vertex-energy/
+**Demo en línea:** https://AndresGomez87.github.io/Atlas-Local-Vertex-Energy/
 
 ![El broom B(6,5) con su mapa de calor de energía local](assets/hero.png)
 
@@ -65,11 +65,11 @@ Es un solo archivo — abre `index.html` en un navegador y listo. Para publicar 
 ```bash
 git init && git add . && git commit -m "Atlas de energía local de vértices"
 git branch -M main
-git remote add origin https://github.com/AndresGomez87/atlas-local-vertex-energy.git
+git remote add origin https://github.com/AndresGomez87/Atlas-Local-Vertex-Energy.git
 git push -u origin main
 ```
 
-Luego en GitHub: **Settings → Pages → Source: Deploy from a branch → main / (root)**. El sitio aparece en `https://AndresGomez87.github.io/atlas-local-vertex-energy/` en uno o dos minutos.
+Luego en GitHub: **Settings → Pages → Source: Deploy from a branch → main / (root)**. El sitio aparece en `https://AndresGomez87.github.io/Atlas-Local-Vertex-Energy/` en uno o dos minutos.
 
 ## Referencias
 

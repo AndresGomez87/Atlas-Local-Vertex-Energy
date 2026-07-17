@@ -1,13 +1,13 @@
 # Atlas of Local Vertex Energy
 
-[![tests](https://github.com/AndresGomez87/atlas-local-vertex-energy/actions/workflows/tests.yml/badge.svg)](https://github.com/AndresGomez87/atlas-local-vertex-energy/actions)
+[![tests](https://github.com/AndresGomez87/Atlas-Local-Vertex-Energy/actions/workflows/tests.yml/badge.svg)](https://github.com/AndresGomez87/Atlas-Local-Vertex-Energy/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-0b4a2f.svg)](LICENSE)
 
 **[Versión en español →](README.es.md)**
 
 An interactive atlas for exploring the **local energy of vertices** in graphs — a recent invariant from spectral graph theory. Draw any graph or generate one from a parametric family, and watch the energy distribute itself across the vertices as a live heatmap, with the spectrum plotted on the real line and energy curves traced across the whole family.
 
-**Live demo:** https://AndresGomez87.github.io/atlas-local-vertex-energy/
+**Live demo:** https://AndresGomez87.github.io/Atlas-Local-Vertex-Energy/
 
 ![The broom B(6,5) with its local energy heatmap](assets/hero.png)
 
@@ -65,11 +65,11 @@ It is a single file — open `index.html` in a browser and that's it. To publish
 ```bash
 git init && git add . && git commit -m "Atlas of local vertex energy"
 git branch -M main
-git remote add origin https://github.com/AndresGomez87/atlas-local-vertex-energy.git
+git remote add origin https://github.com/AndresGomez87/Atlas-Local-Vertex-Energy.git
 git push -u origin main
 ```
 
-Then on GitHub: **Settings → Pages → Source: Deploy from a branch → main / (root)**. The site appears at `https://AndresGomez87.github.io/atlas-local-vertex-energy/` within a minute or two.
+Then on GitHub: **Settings → Pages → Source: Deploy from a branch → main / (root)**. The site appears at `https://AndresGomez87.github.io/Atlas-Local-Vertex-Energy/` within a minute or two.
 
 ## References
 
